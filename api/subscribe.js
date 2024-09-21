@@ -1,42 +1,38 @@
 import nodemailer from 'nodemailer';
 
-const nodemailer = require('nodemailer');
-
-// Konfigurasi transporter untuk Yahoo
-const transporter = nodemailer.createTransport({
-  host: 'smtp.mail.yahoo.com',
-  port: 465, // Port untuk koneksi SSL
-  secure: true, // Gunakan SSL
-  auth: {
-    user: process.env.YAHOO_USER, // Email Yahoo kamu
-    pass: process.env.YAHOO_PASS, // Password Yahoo kamu
-  },
-});
-
 export default async function handler(req, res) {
     if (req.method === 'POST') {
-      const { email } = req.body;
-  
-      if (!email) {
-        return res.status(400).json({ message: 'Email is required' });
-      }
-  
-      try {
-        // Kirim email konfirmasi ke user
-        await transporter.sendMail({
-          from: process.env.YAHOO_USER, // Alamat email pengirim
-          to: email, // Alamat email penerima
-          subject: 'Subscription Confirmation',
-          text: 'Thank you for subscribing to our newsletter!',
+        const { email } = req.body;
+
+        if (!email || !email.includes('@')) {
+            return res.status(400).json({ message: 'Invalid email' });
+        }
+
+        // Configure Nodemailer
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
         });
-  
-        return res.status(200).json({ message: 'Subscription successful' });
-      } catch (error) {
-        console.error('Error sending confirmation email:', error);
-        return res.status(500).json({ message: 'Error sending confirmation email' });
-      }
+
+        // Send confirmation email
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Berlangganan Buletin LOGEE Berhasil!',
+            text: `Halo, Terima kasih telah berlangganan buletin LOGEE! Anda akan menerima berita terbaru dari kami.`,
+        };
+
+        try {
+            await transporter.sendMail(mailOptions);
+            return res.status(200).json({ message: 'Subscription successful and email sent' });
+        } catch (error) {
+            console.error('Error sending email:', error);
+            return res.status(500).json({ message: 'Error sending confirmation email' });
+        }
     } else {
-      res.setHeader('Allow', ['POST']);
-      return res.status(405).json({ message: `Method ${req.method} not allowed` });
+        return res.status(405).json({ message: 'Method not allowed' });
     }
-  }
+}

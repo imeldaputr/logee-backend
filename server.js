@@ -1,47 +1,63 @@
 const express = require('express');
+const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Middleware untuk parsing JSON
-app.use(express.json());
+// Middleware
+app.use(bodyParser.json());
 
-// Konfigurasi Nodemailer untuk Yahoo
+// Dummy in-memory array to store emails (in real case, use database)
+let subscribers = [];
+
+require('dotenv').config();
+
 const transporter = nodemailer.createTransport({
-  host: 'smtp.mail.yahoo.com',
-  port: 465, // Port untuk SSL
-  secure: true, // Menggunakan SSL
+  service: 'gmail',
   auth: {
-    user: process.env.YAHOO_USER, 
-    pass: process.env.YAHOO_PASS, 
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
-// Endpoint untuk subscription
-app.post('/api/subscribe', async (req, res) => {
-  const { email } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ message: 'Email is required' });
-  }
+// POST endpoint for email subscription
+app.post('/subscribe', (req, res) => {
+    const { email } = req.body;
 
-  try {
-    // Mengirim email konfirmasi ke user
-    await transporter.sendMail({
-      from: process.env.YAHOO_USER, // Alamat email pengirim
-      to: email, // Alamat email penerima
-      subject: 'Berlangganan Buletin LOGEE Berhasil!',
-      text: 'Halo, Terima kasih telah berlangganan buletin LOGEE! Anda akan menerima berita terbaru dari kami.',
+    // Basic email validation
+    if (!email || !email.includes('@')) {
+        return res.status(400).json({ message: 'Invalid email' });
+    }
+
+    // Check if email already subscribed
+    if (subscribers.includes(email)) {
+        return res.status(400).json({ message: 'Email already subscribed' });
+    }
+
+    // Add email to subscribers
+    subscribers.push(email);
+
+    // Send confirmation email
+    const mailOptions = {
+        from: 'your-email@gmail.com',
+        to: email,
+        subject: 'Berlangganan Buletin LOGEE Berhasil!',
+        text: `Halo, Terima kasih telah berlangganan buletin LOGEE! Anda akan menerima berita terbaru dari kami.`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            console.log('Error sending email:', error);
+            return res.status(500).json({ message: 'Error sending confirmation email' });
+        } else {
+            console.log('Email sent:', info.response);
+            return res.status(200).json({ message: 'Subscription successful and email sent' });
+        }
     });
-
-    res.status(200).json({ message: 'Subscription successful' });
-  } catch (error) {
-    console.error('Error sending confirmation email:', error);
-    res.status(500).json({ message: 'Error sending confirmation email' });
-  }
 });
 
-// Menjalankan server
-const PORT = process.env.PORT || 3000;
+// Start server
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
